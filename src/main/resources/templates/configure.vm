@@ -1,5 +1,5 @@
 <head>
-    <meta name="decorator" content="atl.admin" />
+    <meta name="decorator" content="atl.admin"/>
     <title>$i18n.getText("saml2plugin.admin.title")</title>
     <meta name="admin.active.section" content="admin_system_menu/top_system_section/mail_section">
     <meta name="admin.active.tab" content="saml2plugin.config.link">
@@ -7,61 +7,144 @@
 </head>
 <body>
 
+<form class="aui" name="saml2pluginjira-configure-form" method="POST"
+      action="${req.contextPath}/secure/admin/saml2pluginjira.configure.jspa">
+
     #if ($success == "success")
         <div class="aui-message closeable shadowed info">
             <p>$textutils.htmlEncode($i18n.getText("saml2plugin.admin.message.saved"))</p>
         </div>
     #elseif (${hasErrorMessages})
-      <div class="aui-message closeable error">
+        <div class="aui-message closeable error">
             #foreach ( $error in $action.getErrorMessages() )
                 <p>$textutils.htmlEncode( $error )</p>
             #end
         </div>
     #end
-    <form class="aui" name="saml2pluginjira-configure-form" method="POST" action="${req.contextPath}/secure/admin/saml2pluginjira.configure.jspa">
 
-        <input type="hidden" name="submitAction" value="submit"/>
+    #set($urlPrefix = "http://")
+    #if ($req.secure)
+        #set($urlPrefix = "https://")
+    #end
+    <h3>$i18n.getText("saml2Plugin.admin.commonProperties")</h3>
+    <fieldset class="group">
+        <div class="field-group">
+            <label for="samlEndpoint">$i18n.getText("saml2plugin.admin.field.samlEndpoint")</label>
+            <input class="text long-field" id="samlEndpoint" type="text" readonly
+                   value="$urlPrefix${req.serverName}:${req.serverPort}${req.contextPath}/plugins/servlet/saml/auth">
 
-	#set($urlPrefix = "http://")
-        #if ($req.secure)
-            #set($urlPrefix = "https://")
-        #end
-
-        <div class="field-label">$i18n.getText("saml2plugin.admin.field.samlEndpoint")</div>
-        <div>
-          <input class="field-input" id="samlEndpoint" type="text" disabled="disabled" value="$urlPrefix${req.serverName}:${req.serverPort}${req.contextPath}/plugins/servlet/saml/auth">
-          <input class="aui-button aui-button-primary" id="copy-button" value="Copy" style="font-size:12px;margin-left:-65px;width:55px;padding-bottom:2px;"/>
-	  <span id="endpoint-copied" style="visibility:hidden;color:grey;font-size:12px;margin-left:10px;">$i18n.getText("saml2plugin.admin.endpoint-copied")</span>
+            <div class="description">$i18n.getText("saml2plugin.admin.field.samlEndpoint.desc")</div>
         </div>
-	<div class="field-desc">$i18n.getText("saml2plugin.admin.field.samlEndpoint.desc")</div>
-        <div class="field-label">$i18n.getText("saml2plugin.admin.field.loginUrl")</div>
-        <input class="field-input" type="text" name="loginUrl" id="loginUrl" value="$textutils.htmlEncode( $loginUrl )"/>
-        <div class="field-desc">$i18n.getText("saml2plugin.admin.field.loginUrl.desc")</div>
-##        <div class="field-label">$i18n.getText("saml2plugin.admin.field.logoutUrl")</div>
-##        <input class="field-input" type="text" name="logoutUrl" id="logoutUrl" value="$textutils.htmlEncode( $logoutUrl )"/>
-##        <div class="field-desc">$i18n.getText("saml2plugin.admin.field.logoutUrl.desc")</div>
-        <div class="field-label">$i18n.getText("saml2plugin.admin.field.uidAttribute")</div>
-        <input class="field-input" type="text" name="uidAttribute" id="uidAttribute" value="$textutils.htmlEncode( $uidAttribute)"/>
-        <div class="field-desc">$i18n.getText("saml2plugin.admin.field.uidAttribute.desc")</div>
-        <div class="field-label">$i18n.getText("saml2plugin.admin.field.x509Certificate")</div>
-        <textarea class="field-input" name="x509Certificate" id="x509Certificate" rows="10">$textutils.htmlEncode( $x509Certificate )</textarea>
-        <div class="field-desc">$i18n.getText("saml2plugin.admin.field.x509Certificate.desc")</div>
-        <div class="field-label">$i18n.getText("saml2plugin.admin.field.entityId")</div>
-        <input class="field-input" type="text" name="entityId" id="entityId" value="$textutils.htmlEncode( $entityId )"/>
-        <div class="field-desc">$i18n.getText("saml2plugin.admin.field.entityId.desc")</div>
-        <div class="field-label">
-          <input type="checkbox" name="idpRequired" id="idpRequired" class="checkbox"
-          #if ($idpRequired.equals("true"))
-            checked
-          #end>$i18n.getText("saml2plugin.admin.field.idpRequired")</div>
-        <div class="field-desc" style="margin-left:20px;">$i18n.getText("saml2plugin.admin.field.idpRequired.desc")</div>
-        <div class="field-label">
-          <input type="checkbox" name="autoCreateUser" id="autoCreateUser" class="checkbox"
-          #if ($autoCreateUser.equals("true"))
-            checked
-          #end>$i18n.getText("saml2plugin.admin.field.autoCreateUser")</div>
-        <div class="field-desc" style="margin-left:20px;">$i18n.getText("saml2plugin.admin.field.autoCreateUser.desc")</div>
-        <div style="margin-top:10px"><input class="aui-button aui-button-primary" type="submit" value="$i18n.getText('save.name')"></div>
+        <div class="field-group">
+            <div class="checkbox">
+                <input type="checkbox" name="idpRequired" id="idpRequired" class="checkbox"
+                    #if ($idpRequired.equals("true"))
+                       checked
+                    #end/>
+                <label for="idpRequired">$i18n.getText("saml2plugin.admin.field.idpRequired")</label>
 
-    </form>
+                <div class="description">$i18n.getText("saml2plugin.admin.field.idpRequired.desc")</div>
+            </div>
+        </div>
+    </fieldset>
+    <h3>IdentityProvider</h3>
+    <fieldset class="group">
+        <div class="field-group">
+            <select id="idps">
+                #foreach ( $idp in $idps )
+                    <option value="$idp.getName()"
+                        #if ($entityId == $idp.getName())
+                            selected
+                        #end>$idp.getName()</option>
+                #end
+            </select>
+            ##if ($entityId)
+                <span title="$i18n.getText('saml2Plugin.admin.deleteIdP')" id="deleteIdP" style="cursor:pointer;"
+                      class="aui-icon aui-icon-small aui-iconfont-delete"></span>
+            ##end
+            <div style="border-bottom: 1px solid lightgray;margin:20px 0;" class="long-field"></div>
+        </div>
+        <div class="field-group">
+            <label for="loginUrl">$i18n.getText("saml2plugin.admin.field.loginUrl")</label>
+            <input class="text long-field" type="text" name="loginUrl" id="loginUrl"
+                   value="$textutils.htmlEncode( $loginUrl )"/>
+
+            <div class="description">$i18n.getText("saml2plugin.admin.field.loginUrl.desc")</div>
+        </div>
+    ##        <label for="logoutUrl">$i18n.getText("saml2plugin.admin.field.logoutUrl")</label>
+    ##        <input class="text long-field" type="text" name="logoutUrl" id="logoutUrl" value="$textutils.htmlEncode( $logoutUrl )"/>
+    ##        <div class="description">$i18n.getText("saml2plugin.admin.field.logoutUrl.desc")</div>
+        <div class="field-group"><label for="uidAttribute">$i18n.getText("saml2plugin.admin.field.uidAttribute")</label>
+            <input class="text medium-field" type="text" name="uidAttribute" id="uidAttribute"
+                   value="$textutils.htmlEncode( $uidAttribute)"/>
+
+            <div class="description">$i18n.getText("saml2plugin.admin.field.uidAttribute.desc")</div>
+        </div>
+
+        <div class="field-group"><label
+                for="nameAttribute">$i18n.getText("saml2plugin.admin.field.nameAttribute")</label>
+            <input class="text medium-field" type="text" name="nameAttribute" id="nameAttribute"
+                   value="$textutils.htmlEncode( $nameAttribute)"/>
+
+            <div class="description">$i18n.getText("saml2plugin.admin.field.nameAttribute.desc")</div>
+        </div>
+
+        <div class="field-group"><label
+                for="mailAttribute">$i18n.getText("saml2plugin.admin.field.mailAttribute")</label>
+            <input class="text medium-field" type="text" name="mailAttribute" id="mailAttribute"
+                   value="$textutils.htmlEncode( $mailAttribute)"/>
+
+            <div class="description">$i18n.getText("saml2plugin.admin.field.mailAttribute.desc")</div>
+        </div>
+
+        <div class="field-group"><label
+                for="x509Certificate">$i18n.getText("saml2plugin.admin.field.x509Certificate")</label>
+            <textarea class="textarea long-field" name="x509Certificate" id="x509Certificate"
+                      style="font-size:0.7em;font-family:monospace;" rows="10">$textutils.htmlEncode( $x509Certificate )</textarea>
+
+            <div class="description">$i18n.getText("saml2plugin.admin.field.x509Certificate.desc")</div>
+        </div>
+
+        <div class="field-group"><label for="entityId">$i18n.getText("saml2plugin.admin.field.entityId")</label>
+            <input class="text medium-field" type="text" name="entityId" id="entityId"
+                   value="$textutils.htmlEncode( $entityId )"/>
+
+            <div class="description">$i18n.getText("saml2plugin.admin.field.entityId.desc")</div>
+        </div>
+        <div class="field-group">
+            <div class="checkbox">
+                <input type="checkbox" name="autoCreateUser" id="autoCreateUser" class="checkbox"
+                    #if ($autoCreateUser.equals("true"))
+                       checked
+                    #end/>
+                <label for="autoCreateUser">$i18n.getText("saml2plugin.admin.field.autoCreateUser")</label>
+
+                <div class="description">$i18n.getText("saml2plugin.admin.field.autoCreateUser.desc")</div>
+            </div>
+        </div>
+        <div class="field-group">
+            <div class="checkbox">
+                <input type="checkbox" name="removeFromGroups" id="removeFromGroups" class="checkbox"
+                    #if ($removeFromGroups.equals("true"))
+                       checked
+                    #end
+                    #if (!$autoCreateUser.equals("true"))
+                       disabled
+                    #end/>
+                <label for="removeFromGroups">$i18n.getText("saml2plugin.admin.field.removeFromGroups")</label>
+
+                <div class="description">$i18n.getText("saml2plugin.admin.field.removeFromGroups.desc")</div>
+            </div>
+
+
+            <input type="hidden" name="id" value="$id"/>
+            <input type="hidden" name="submitAction" value="submit"/>
+    </fieldset>
+    <div class="buttons-container">
+        <div class="buttons">
+            <input type="submit" id="d-save-btn1" value="$i18n.getText('save.name')" class="button submit">
+        </div>
+    </div>
+
+</form>
 </body></html>

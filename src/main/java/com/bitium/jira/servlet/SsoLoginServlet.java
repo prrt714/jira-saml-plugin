@@ -1,48 +1,46 @@
 package com.bitium.jira.servlet;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.security.Principal;
+
+import com.atlassian.crowd.embedded.api.Group;
+import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.exception.CreateException;
+import com.atlassian.jira.exception.PermissionException;
+import com.atlassian.jira.exception.RemoveException;
+import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.user.DelegatingApplicationUser;
+import com.atlassian.jira.user.util.UserUtil;
+import com.atlassian.seraph.auth.Authenticator;
+import com.atlassian.seraph.auth.DefaultAuthenticator;
+import com.atlassian.seraph.config.SecurityConfigFactory;
+import com.bitium.jira.config.SAMLJiraConfig;
+import com.bitium.jira.config.SamlPluginSettings;
+import com.bitium.saml.SAMLContext;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.saml.SAMLCredential;
+import org.springframework.security.saml.context.SAMLMessageContext;
+import org.springframework.security.saml.util.SAMLUtil;
+import org.springframework.security.saml.websso.*;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import com.atlassian.jira.exception.CreateException;
-import com.atlassian.jira.exception.PermissionException;
-import com.atlassian.jira.user.ApplicationUser;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.opensaml.xml.schema.XSAny;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.saml.SAMLCredential;
-import org.springframework.security.saml.context.SAMLMessageContext;
-import org.springframework.security.saml.util.SAMLUtil;
-import org.springframework.security.saml.websso.WebSSOProfile;
-import org.springframework.security.saml.websso.WebSSOProfileConsumer;
-import org.springframework.security.saml.websso.WebSSOProfileConsumerImpl;
-import org.springframework.security.saml.websso.WebSSOProfileImpl;
-import org.springframework.security.saml.websso.WebSSOProfileOptions;
-
-import com.atlassian.jira.component.ComponentAccessor;
-import com.atlassian.jira.user.util.UserUtil;
-import com.atlassian.jira.user.DelegatingApplicationUser;
-import com.atlassian.seraph.auth.Authenticator;
-import com.atlassian.seraph.auth.DefaultAuthenticator;
-import com.atlassian.seraph.config.SecurityConfigFactory;
-import com.bitium.jira.config.SAMLJiraConfig;
-import com.bitium.saml.SAMLContext;
-
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.Principal;
 
 public class SsoLoginServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	private Log log = LogFactory.getLog(SsoLoginServlet.class);
+	private static final Log log = LogFactory.getLog(SsoLoginServlet.class);
 
-	private SAMLJiraConfig saml2Config;
+	private final SamlPluginSettings samlPluginSettings;
 
-	private SAMLCredential credential;
+    public SsoLoginServlet(SamlPluginSettings samlPluginSettings) {
+        this.samlPluginSettings = samlPluginSettings;
+    }
 
 	@Override
 	public void init() throws ServletException {
@@ -52,8 +50,19 @@ public class SsoLoginServlet extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
+        SAMLJiraConfig samlJiraConfig = null;
+        String entityId = request.getParameter("entityId");
+        if (entityId != null) {
+            samlJiraConfig = samlPluginSettings.get(entityId);
+        } //else {
+            //samlJiraConfig = samlPluginSettings.getFirst();
+        //}
+        if (samlJiraConfig == null) {
+            response.sendRedirect("/jira/login.jsp?samlerror=unknown_idp");
+            return;
+        }
 		try {
-			SAMLContext context = new SAMLContext(request, saml2Config);
+			SAMLContext context = new SAMLContext(request, samlJiraConfig);
 			SAMLMessageContext messageContext = context.createSamlMessageContext(request, response);
 
 			// Generate options for the current SSO request
@@ -72,26 +81,50 @@ public class SsoLoginServlet extends HttpServlet {
 
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException {
-		try {
-			SAMLContext context = new SAMLContext(request, saml2Config);
+        String entityId = SAMLContext.getIssuer(request);
+        SAMLJiraConfig samlJiraConfig = null;
+        if (entityId != null) {
+            samlJiraConfig = samlPluginSettings.get(entityId);
+        }
+        if (samlJiraConfig == null) {
+            try {
+                response.sendRedirect("/jira/login.jsp?samlerror=general");
+            } catch (IOException e) {
+                throw new ServletException(e.getMessage(), e);
+            }
+            return;
+        }
+        try {
+			SAMLContext context = new SAMLContext(request, samlJiraConfig);
 			SAMLMessageContext messageContext = context.createSamlMessageContext(request, response);
 
 			// Process response
 	        context.getSamlProcessor().retrieveMessage(messageContext);
 
 	        messageContext.setLocalEntityEndpoint(SAMLUtil.getEndpoint(messageContext.getLocalEntityRoleMetadata().getEndpoints(), messageContext.getInboundSAMLBinding(), request.getRequestURL().toString()));
-	        messageContext.getPeerEntityMetadata().setEntityID(saml2Config.getIdpEntityId());
+	        messageContext.getPeerEntityMetadata().setEntityID(samlJiraConfig.getIdpEntityId());
 
 	        WebSSOProfileConsumer consumer = new WebSSOProfileConsumerImpl(context.getSamlProcessor(), context.getMetadataManager());
-	        credential = consumer.processAuthenticationResponse(messageContext);
+            SAMLCredential credential = consumer.processAuthenticationResponse(messageContext);
 
 	        request.getSession().setAttribute("SAMLCredential", credential);
 
 
-			String uidAttribute = saml2Config.getUidAttribute();
-			String userName = uidAttribute.equals("NameID") ? credential.getNameID().getValue() : credential.getAttributeAsString(uidAttribute);
+			String[] userNames;
+			String uidAttribute = samlJiraConfig.getUidAttribute();
+			if (uidAttribute.equals("NameID")) {
+				userNames = new String[1];
+				userNames[0] = credential.getNameID().getValue();
+			}
+			else {
+				userNames = credential.getAttributeAsStringArray(uidAttribute);
+				// null is returned when attribute is not present - handle that
+				if (userNames == null){
+					userNames = new String[0];
+				}
+			}
 
-			authenticateUserAndLogin(request, response, userName);
+			authenticateUserAndLogin(request, response, userNames, samlJiraConfig, credential);
 		} catch (AuthenticationException e) {
 			try {
 			    log.error("saml plugin error + " + e.getMessage());
@@ -110,7 +143,7 @@ public class SsoLoginServlet extends HttpServlet {
 	}
 
 	private void authenticateUserAndLogin(HttpServletRequest request,
-			HttpServletResponse response, String username)
+			HttpServletResponse response, String[] usernames, SAMLJiraConfig samlJiraConfig, SAMLCredential credential)
 			throws NoSuchMethodException, IllegalAccessException,
 			InvocationTargetException, IOException, PermissionException, CreateException {
 		Authenticator authenticator = SecurityConfigFactory.getInstance().getAuthenticator();
@@ -120,10 +153,18 @@ public class SsoLoginServlet extends HttpServlet {
 
 		    Method getUserMethod = DefaultAuthenticator.class.getDeclaredMethod("getUser", new Class[]{String.class});
 		    getUserMethod.setAccessible(true);
-		    Object userObject = getUserMethod.invoke(authenticator, new Object[]{username});
+		    Object userObject = null;
+
+			for (String username : usernames){
+				userObject = getUserMethod.invoke(authenticator, new Object[]{username});
+				// stop at first match
+				if (userObject != null) {
+					break;
+				}
+			}
 			// if not found, see if we're allowed to auto-create the user
-			if (userObject == null) {
-				userObject = tryCreateOrUpdateUser(username);
+			if (userObject == null && usernames.length > 0) {
+				userObject = tryCreateOrUpdateUser(usernames[0], samlJiraConfig, credential);
 			}
 		    if(userObject != null && userObject instanceof DelegatingApplicationUser) {
 		    	Principal principal = (Principal)userObject;
@@ -136,32 +177,59 @@ public class SsoLoginServlet extends HttpServlet {
 		        if (result) {
 		        	response.sendRedirect("/jira/secure/Dashboard.jspa");
 		        	return;
-		        }
+		        } else {
+                    response.sendRedirect("/jira/login.jsp?samlerror=auth_error");
+                    return;
+                }
 		    }
 		}
 
 		response.sendRedirect("/jira/login.jsp?samlerror=user_not_found");
 	}
 
-	private Object tryCreateOrUpdateUser(String userName) throws PermissionException, CreateException{
-		if (saml2Config.getAutoCreateUserFlag()){
+	private Object tryCreateOrUpdateUser(String userName, SAMLJiraConfig samlJiraConfig, SAMLCredential credential) throws PermissionException, CreateException{
+		if (samlJiraConfig.isAutoCreateUser()){
 			UserUtil uu = ComponentAccessor.getUserUtil();
-			String fullName = credential.getAttributeAsString("cn");
-			String email = credential.getAttributeAsString("mail");
-			log.warn("Creating user account for " + userName );
-			uu.createUserNoNotification(userName, null, email, fullName);
-			// above returns api.User but we need ApplicationUser so search for it
-			return uu.getUserByName(userName);
-		} else {
+
+            //use format e.g. '%s %s:sn, givenname'
+			String[] nameAttribute = samlJiraConfig.getNameAttribute().split(":");
+            String pattern = "";
+            if (nameAttribute.length == 1) {
+                pattern = "%s %s";
+                nameAttribute = nameAttribute[0].split(",");
+            } else if (nameAttribute.length > 1) {
+                pattern = nameAttribute[0];
+                nameAttribute = nameAttribute[1].split(",");
+            }
+
+            String[] nameParts = new String[nameAttribute.length];
+            for (int i=0; i< nameAttribute.length;i++) {
+                nameParts[i] = credential.getAttributeAsString(nameAttribute[i]);
+            }
+
+            String fullName = String.format(pattern, nameParts).trim();
+
+            String mailAttribute = samlJiraConfig.getMailAttribute();
+            String email = credential.getAttributeAsString(mailAttribute);
+			log.info("Creating user account for " + userName);
+			ApplicationUser u = uu.createUserNoNotification(userName, null, email, fullName);
+
+            if (samlJiraConfig.isRemoveFromGroups()) {
+                for (Group g : uu.getGroupsForUser(userName)) {
+                    try {
+                        uu.removeUserFromGroup(g, u);
+                    } catch (RemoveException e) {
+                        log.error(e.getMessage(), e);
+                    }
+                }
+            }
+
+			return u;//uu.getUserByName(userName);// above returns api.User but we need ApplicationUser so search for it
+
+        } else {
 			// not allowed to auto-create user
-			log.error("User not found and auto-create disabled: " + userName);
+			log.debug("User not found and auto-create disabled: " + userName);
 		}
 		return null;
 	}
-
-	public void setSaml2Config(SAMLJiraConfig saml2Config) {
-		this.saml2Config = saml2Config;
-	}
-
-
 }

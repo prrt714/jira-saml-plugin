@@ -1,115 +1,150 @@
 package com.bitium.jira.config;
 
-import org.apache.commons.lang.StringUtils;
-
-import com.atlassian.sal.api.pluginsettings.PluginSettings;
-import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.bitium.saml.SAMLConfig;
+import org.apache.commons.lang3.StringUtils;
+import org.codehaus.jackson.annotate.JsonIgnore;
 
-public class SAMLJiraConfig implements SAMLConfig {
-	
-	private PluginSettings pluginSettings;
+import java.io.Serializable;
 
-	private String defaultBaseURL;
-	
-	public static final String ENTITY_ID_SETTING = "saml2.entityId";
-	public static final String LOGIN_URL_SETTING = "saml2.loginUrl";
-	public static final String LOGOUT_URL_SETTING = "saml2.logoutUrl";
-	public static final String UID_ATTRIBUTE_SETTING = "salm2.uidAttribute";
-	public static final String X509_CERTIFICATE_SETTING = "saml2.x509Certificate";
-	public static final String IDP_REQUIRED_SETTING = "saml2.idpRequired";
-	public static final String AUTO_CREATE_USER_SETTING = "saml2.autoCreateUser";
+public class SAMLJiraConfig implements Serializable, SAMLConfig {
 
-	public void setPluginSettingsFactory(PluginSettingsFactory pluginSettingsFactory) {
-		this.pluginSettings = pluginSettingsFactory.createGlobalSettings();
-	}
-	
-	public void setLoginUrl(String loginUrl) {
-		pluginSettings.put(LOGIN_URL_SETTING, loginUrl);
-	}
+    private static final long serialVersionUID = 6354598008471163539L;
 
-	public void setLogoutUrl(String logoutUrl) {
-		pluginSettings.put(LOGOUT_URL_SETTING, logoutUrl);		
-	}
+    private String defaultBaseURL;
 
-	public void setEntityId(String entityId) {
-		pluginSettings.put(ENTITY_ID_SETTING, entityId);
-	}
+    private String id;
+    private String loginUrl;
+    private String logoutUrl;
+    private String entityId;
+    private String uidAttribute = "NameID";
+    private String nameAttribute = "cn";
+    private String mailAttribute = "mail";
+    private String x509Certificate;
+    private boolean idpRequired = false;
+    private boolean autoCreateUser = true;
+    private boolean removeFromGroups = false;
 
-	public void setUidAttribute(String uidAttribute) {
-		pluginSettings.put(UID_ATTRIBUTE_SETTING, uidAttribute);
-	}
+    public SAMLJiraConfig() {
+    }
 
-	public void setX509Certificate(String x509Certificate) {
-		pluginSettings.put(X509_CERTIFICATE_SETTING, x509Certificate);		
-	}
+    public SAMLJiraConfig(String id) {
+        this.id = id;
+    }
 
-	public void setIdpRequired(String idpRequired) {
-		pluginSettings.put(IDP_REQUIRED_SETTING, idpRequired);		
-	}
-	
-	public String getIdpRequired() {
-		return StringUtils.defaultString((String)pluginSettings.get(IDP_REQUIRED_SETTING));
-	}
-	
-	public boolean getIdpRequiredFlag() {
-		if (StringUtils.defaultString((String)pluginSettings.get(IDP_REQUIRED_SETTING)).equals("true")) {
-			return true;
-		} else {
-			return false;
-		}
-	}
+    @Override
+    @JsonIgnore
+    public String getAlias() {
+        return SamlPluginSettings.getBaseAlias();
+    }
 
-	public void setAutoCreateUser(String autoCreateUser) {
-		pluginSettings.put(AUTO_CREATE_USER_SETTING, autoCreateUser);
-	}
+    @Override
+    @JsonIgnore
+    public String getBaseUrl() {
+        return StringUtils.defaultString(defaultBaseURL);
+    }
 
-	public String getAutoCreateUser() {
-		return StringUtils.defaultString((String)pluginSettings.get(AUTO_CREATE_USER_SETTING));
-	}
+    @Override
+    @JsonIgnore
+    public String getSpEntityId() {
+        return defaultBaseURL + "/" + getAlias();
+    }
 
-	public boolean getAutoCreateUserFlag() {
-		if (StringUtils.defaultString((String)pluginSettings.get(AUTO_CREATE_USER_SETTING)).equals("true")) {
-			return true;
-		} else {
-			return false;
-		}
-	}
+    @Override
+    @JsonIgnore
+    public String getIdpEntityId() {
+        return entityId;
+    }
 
-	public String getLoginUrl() {
-		return StringUtils.defaultString((String)pluginSettings.get(LOGIN_URL_SETTING));
-	}
+    @Override
+    public void setDefaultBaseUrl(String defaultBaseURL) {
+        this.defaultBaseURL = defaultBaseURL;
+    }
 
-	public String getLogoutUrl() {
-		return StringUtils.defaultString((String)pluginSettings.get(LOGOUT_URL_SETTING));
-	}
+    public String getLoginUrl() {
+        return loginUrl;
+    }
 
-	public String getIdpEntityId() {
-		return StringUtils.defaultString((String)pluginSettings.get(ENTITY_ID_SETTING));
-	}
+    public void setLoginUrl(String loginUrl) {
+        this.loginUrl = loginUrl;
+    }
 
-	public String getUidAttribute() {
-		return StringUtils.defaultString((String)pluginSettings.get(UID_ATTRIBUTE_SETTING), "NameID");
-	}
+    public String getLogoutUrl() {
+        return logoutUrl;
+    }
 
-	public String getX509Certificate() {
-		return StringUtils.defaultString((String)pluginSettings.get(X509_CERTIFICATE_SETTING));
-	}
+    public void setLogoutUrl(String logoutUrl) {
+        this.logoutUrl = logoutUrl;
+    }
 
-	public void setDefaultBaseUrl(String defaultBaseURL) {
-		this.defaultBaseURL = defaultBaseURL;		
-	}
-	
-	public String getAlias() {
-		return "confluenceSAML";
-	}
+    public String getEntityId() {
+        return entityId;
+    }
 
-	public String getBaseUrl() {
-		return StringUtils.defaultString(defaultBaseURL);
-	}
+    public void setEntityId(String entityId) {
+        this.entityId = entityId;
+    }
 
-	public String getSpEntityId() {
-		return defaultBaseURL + "/" + getAlias();
-	}
+    public String getUidAttribute() {
+        return uidAttribute;
+    }
 
+    public void setUidAttribute(String uidAttribute) {
+        this.uidAttribute = uidAttribute;
+    }
+
+    public String getNameAttribute() {
+        return nameAttribute;
+    }
+
+    public void setNameAttribute(String nameAttribute) {
+        this.nameAttribute = nameAttribute;
+    }
+
+    public String getMailAttribute() {
+        return mailAttribute;
+    }
+
+    public void setMailAttribute(String mailAttribute) {
+        this.mailAttribute = mailAttribute;
+    }
+
+    public String getX509Certificate() {
+        return x509Certificate;
+    }
+
+    public void setX509Certificate(String x509Certificate) {
+        this.x509Certificate = x509Certificate;
+    }
+
+    public boolean isIdpRequired() {
+        return idpRequired;
+    }
+
+    public void setIdpRequired(boolean idpRequired) {
+        this.idpRequired = idpRequired;
+    }
+
+    public boolean isAutoCreateUser() {
+        return autoCreateUser;
+    }
+
+    public void setAutoCreateUser(boolean autoCreateUser) {
+        this.autoCreateUser = autoCreateUser;
+    }
+
+    public boolean isRemoveFromGroups() {
+        return removeFromGroups;
+    }
+
+    public void setRemoveFromGroups(boolean removeFromGroups) {
+        this.removeFromGroups = removeFromGroups;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 }

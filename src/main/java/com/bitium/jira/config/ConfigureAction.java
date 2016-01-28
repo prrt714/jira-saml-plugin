@@ -2,7 +2,9 @@ package com.bitium.jira.config;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 
+import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.lang.StringUtils;
 
 import com.atlassian.jira.web.action.JiraWebActionSupport;
@@ -11,33 +13,34 @@ import com.bitium.saml.X509Utils;
 public class ConfigureAction extends JiraWebActionSupport {
 	private static final long serialVersionUID = 1L;
 
+	private String id;
 	private String loginUrl;
 	private String logoutUrl;
 	private String entityId;
 	private String uidAttribute;
+	private String nameAttribute;
+	private String mailAttribute;
 	private String autoCreateUser;
+	private String removeFromGroups;
 	private String x509Certificate;
 	private String idpRequired;
 	private String success = "";
 	private String submitAction;
+    private String lastEntityId;
 
-	private SAMLJiraConfig saml2Config;
+    public String getLastEntityId() {
+        return lastEntityId;
+    }
 
+    public void setLastEntityId(String lastEntityId) {
+        this.lastEntityId = lastEntityId;
+    }
 
-	public void setSaml2Config(SAMLJiraConfig saml2Config) {
-		this.saml2Config = saml2Config;
-	}
+    private final SamlPluginSettings samlPluginSettings;
 
-	public ConfigureAction() {
-	}
-
-	public String getIdpRequired() {
-		return idpRequired;
-	}
-
-	public void setIdpRequired(String idpRequired) {
-		this.idpRequired = idpRequired;
-	}
+	public ConfigureAction(SamlPluginSettings samlPluginSettings) {
+        this.samlPluginSettings = samlPluginSettings;
+    }
 
 	public String getX509Certificate() {
 		return x509Certificate;
@@ -63,13 +66,22 @@ public class ConfigureAction extends JiraWebActionSupport {
 		this.uidAttribute = uidAttribute;
 	}
 
-	public String getAutoCreateUser() {
-		return autoCreateUser;
+	public String getNameAttribute() {
+		return nameAttribute;
 	}
 
-	public void setAutoCreateUser(String autoCreateUser) {
-		this.autoCreateUser = autoCreateUser;
+	public void setNameAttribute(String nameAttribute) {
+		this.nameAttribute = nameAttribute;
 	}
+
+	public String getMailAttribute() {
+		return mailAttribute;
+	}
+
+	public void setMailAttribute(String mailAttribute) {
+		this.mailAttribute = mailAttribute;
+	}
+
 
 	public String getLogoutUrl() {
 		return logoutUrl;
@@ -87,7 +99,31 @@ public class ConfigureAction extends JiraWebActionSupport {
 		this.loginUrl = loginUrl;
 	}
 
-	public String getSuccess() {
+    public String getAutoCreateUser() {
+        return autoCreateUser;
+    }
+
+    public void setAutoCreateUser(String autoCreateUser) {
+        this.autoCreateUser = autoCreateUser;
+    }
+
+    public String getRemoveFromGroups() {
+        return removeFromGroups;
+    }
+
+    public void setRemoveFromGroups(String removeFromGroups) {
+        this.removeFromGroups = removeFromGroups;
+    }
+
+    public String getIdpRequired() {
+        return idpRequired;
+    }
+
+    public void setIdpRequired(String idpRequired) {
+        this.idpRequired = idpRequired;
+    }
+
+    public String getSuccess() {
 		return success;
 	}
 
@@ -103,7 +139,19 @@ public class ConfigureAction extends JiraWebActionSupport {
 		this.submitAction = submitAction;
 	}
 
-	public void doValidation() {
+    public List<NameValuePair> getIdps() {
+        return samlPluginSettings.getIdps();
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void doValidation() {
 		setSuccess("");
 		if (getSubmitAction() == null || getSubmitAction().equals("")) {
 			return;
@@ -135,6 +183,12 @@ public class ConfigureAction extends JiraWebActionSupport {
 		if (StringUtils.isBlank(getUidAttribute())) {
 			addErrorMessage(getText("saml2Plugin.admin.uidAttributeEmpty"));
 		}
+		if (StringUtils.isBlank(getNameAttribute())) {
+			addErrorMessage(getText("saml2Plugin.admin.nameAttributeEmpty"));
+		}
+		if (StringUtils.isBlank(getMailAttribute())) {
+			addErrorMessage(getText("saml2Plugin.admin.mailAttributeEmpty"));
+		}
 		if (StringUtils.isBlank(getX509Certificate())) {
 			addErrorMessage(getText("saml2Plugin.admin.x509CertificateEmpty"));
 		} else {
@@ -144,49 +198,71 @@ public class ConfigureAction extends JiraWebActionSupport {
 				addErrorMessage(getText("saml2Plugin.admin.x509CertificateInvalid"));
 			}
 		}
-		if (StringUtils.isBlank(getIdpRequired())) {
-			setIdpRequired("false");
-		} else {
-			setIdpRequired("true");
-		}
-		if (StringUtils.isBlank(getAutoCreateUser())) {
-			setAutoCreateUser("false");
-		} else {
-			setAutoCreateUser("true");
-		}
 
-	}
+        if (StringUtils.isBlank(getIdpRequired())) {
+            setIdpRequired("false");
+        } else {
+            setIdpRequired("true");
+        }
+        if (StringUtils.isBlank(getAutoCreateUser())) {
+            setAutoCreateUser("false");
+        } else {
+            setAutoCreateUser("true");
+        }
+
+        if (StringUtils.isBlank(getRemoveFromGroups())) {
+            setRemoveFromGroups("false");
+        } else {
+            setRemoveFromGroups("true");
+        }
+   	}
+
 
 
 	public String doExecute() throws Exception {
+        SAMLJiraConfig saml2Config = null;
+
 		if (getSubmitAction() == null || getSubmitAction().equals("")) {
+            String entityId = StringUtils.defaultString(getHttpRequest().getParameter("entityId"));
+            if (!entityId.isEmpty()) {
+                saml2Config = samlPluginSettings.get(entityId);
+            } else if (lastEntityId != null) {
+                saml2Config = samlPluginSettings.get(lastEntityId);
+            }
+            if (saml2Config == null) {
+                saml2Config = samlPluginSettings.getFirst();
+            }
+
+            setId(saml2Config.getId());
 			setLoginUrl(saml2Config.getLoginUrl());
 			setLogoutUrl(saml2Config.getLogoutUrl());
 			setEntityId(saml2Config.getIdpEntityId());
 			setUidAttribute(saml2Config.getUidAttribute());
+			setNameAttribute(saml2Config.getNameAttribute());
+			setMailAttribute(saml2Config.getMailAttribute());
 			setX509Certificate(saml2Config.getX509Certificate());
-			String idpRequired = saml2Config.getIdpRequired();
-			if (idpRequired != null) {
-				setIdpRequired(idpRequired);
-			} else {
-				setIdpRequired("false");
-			}
-			String autoCreateUser = saml2Config.getAutoCreateUser();
-			if (autoCreateUser != null) {
-				setAutoCreateUser(autoCreateUser);
-			} else {
-				setAutoCreateUser("false");
-			}
+            setIdpRequired(String.valueOf(samlPluginSettings.isIdpRequired()));
+            setAutoCreateUser(String.valueOf(saml2Config.isAutoCreateUser()));
+            setRemoveFromGroups(String.valueOf(saml2Config.isRemoveFromGroups()));
 			return "success";
 		}
+
+        if (getId() == null || getId().isEmpty() || getId().equals(SamlPluginSettings.NEW_ID_EMPTY)) {
+            setId("id" + System.currentTimeMillis());
+        }
+        saml2Config = new SAMLJiraConfig();
+		saml2Config.setId(getId());
 		saml2Config.setLoginUrl(getLoginUrl());
 		saml2Config.setLogoutUrl(getLogoutUrl());
 		saml2Config.setEntityId(getEntityId());
 		saml2Config.setUidAttribute(getUidAttribute());
+		saml2Config.setNameAttribute(getNameAttribute());
+		saml2Config.setMailAttribute(getMailAttribute());
 		saml2Config.setX509Certificate(getX509Certificate());
-		saml2Config.setIdpRequired(getIdpRequired());
-		saml2Config.setAutoCreateUser(getAutoCreateUser());
-
+		saml2Config.setIdpRequired(Boolean.valueOf(getIdpRequired()));
+		saml2Config.setAutoCreateUser(Boolean.valueOf(getAutoCreateUser()));
+		saml2Config.setRemoveFromGroups(Boolean.valueOf(getRemoveFromGroups()));
+        samlPluginSettings.save(saml2Config);
 		setSuccess("success");
 		return "success";
 	}

@@ -14,11 +14,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.atlassian.sal.api.auth.LoginUriProvider;
-import com.bitium.jira.config.SAMLJiraConfig;
+import com.bitium.jira.config.SamlPluginSettings;
 
 public class LoginFilter implements Filter {
 	
-	private SAMLJiraConfig config;
+	private SamlPluginSettings samlPluginSettings;
 	private LoginUriProvider loginUriProvider;
 
 	@Override
@@ -28,7 +28,7 @@ public class LoginFilter implements Filter {
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response,
 			FilterChain chain) throws IOException, ServletException {
-        boolean idpRequired = config.getIdpRequiredFlag();
+        boolean idpRequired = samlPluginSettings.isIdpRequired();
         HttpServletRequest req = (HttpServletRequest)request;
     	HttpServletResponse res = (HttpServletResponse)response;
     	
@@ -46,8 +46,8 @@ public class LoginFilter implements Filter {
 	public void destroy() {
 	}
 
-	public void setConfig(SAMLJiraConfig config) {
-		this.config = config;
+	public void setSamlPluginSettings(SamlPluginSettings samlPluginSettings) {
+		this.samlPluginSettings = this.samlPluginSettings;
 	}
 
 	public void setLoginUriProvider(LoginUriProvider loginUriProvider) {

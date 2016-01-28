@@ -9,65 +9,64 @@
     <param name="plugin-logo">images/pluginLogo.png</param>
     <param name="configure.url">/secure/admin/saml2pluginjira.configure.jspa</param>
   </plugin-info>
-
-  <resource type="download" name="images/" location="images/" />
+  <resource type="download" name="images/" location="images/"/>
   <resource type="i18n" name="i18n" location="SAML2PluginJira"/>
-   
   <web-resource key="loginAuth-plugin" name="Login auth plugin">
     <resource name="loginAuth.js" type="download" location="loginAuth.js"/>
     <context>atl.general</context>
   </web-resource>
-
   <web-resource key="admin-resources" name="Admin web resources">
-    <resource name="configPlugin.css" type="download" location="configPlugin.css"/>
+    <dependency>com.atlassian.auiplugin:aui-select2</dependency>
+<!--    <resource name="configPlugin.css" type="download" location="configPlugin.css"/>
     <resource name="ZeroClipboard.js" type="download" location="ZeroClipboard.js"/>
-    <resource name="ZeroClipboard.swf" type="download" location="ZeroClipboard.swf"/>
+    <resource name="ZeroClipboard.swf" type="download" location="ZeroClipboard.swf"/>-->
     <resource name="configPlugin.js" type="download" location="configPlugin.js"/>
     <context>atl.admin</context>
   </web-resource>
-
   <web-item name="SAML 2.0 Configuration" i18n-name-key="saml2plugin.config" key="saml2plugin-config" section="top_system_section/mail_section" weight="150" application="jira">
-      <description key="saml2plugin.config">SAML 2.0 plugin Configuration</description>
-      <label key="saml2plugin.config">SAML 2.0 plugin Configuration</label>
-      <link linkId="saml2plugin.config.link">/secure/admin/saml2pluginjira.configure.jspa</link>
+    <description key="saml2plugin.config">SAML 2.0 plugin Configuration</description>
+    <label key="saml2plugin.config">SAML 2.0 plugin Configuration</label>
+    <link linkId="saml2plugin.config.link">/secure/admin/saml2pluginjira.configure.jspa</link>
   </web-item>
-
-  <component key="samlConfig" class="com.bitium.jira.config.SAMLJiraConfig" />
-
+  <component-import key="i18nResolver" interface="com.atlassian.sal.api.message.I18nResolver"/>
+  <component key="samlPluginSettings" class="com.bitium.jira.config.SamlPluginSettings"/>
   <component-import key="applicationProperties" interface="com.atlassian.sal.api.ApplicationProperties"/>
   <component-import key="pluginSettingsFactory" interface="com.atlassian.sal.api.pluginsettings.PluginSettingsFactory"/>
-  <component-import name="LoginUriProvider " key="loginUriProvider " interface="com.atlassian.sal.api.auth.LoginUriProvider"/>
-
+  <component-import name="LoginUriProvider" key="loginUriProvider " interface="com.atlassian.sal.api.auth.LoginUriProvider"/>
   <!-- Authentication servlet. Redirects a user to IDP and then logs him in, if authentication was successfull -->
   <servlet name="SAML 2 Login Servlet" i18n-name-key="saml-login-servlet.name" key="saml-login-servlet" class="com.bitium.jira.servlet.SsoLoginServlet">
     <description key="saml-login-servlet.description">The SAML 2 Login Servlet Plugin</description>
     <url-pattern>/saml/auth</url-pattern>
   </servlet>
-  
+  <!--service provider's metadata-->
+  <servlet name="SAML 2 Metadata" i18n-name-key="saml-metadata-servlet.name" key="saml-metadata-servlet" class="com.bitium.jira.servlet.SpMetadataServlet">
+    <description key="saml-metadata-servlet.description">The SAML 2 Service Proveder's Metadata</description>
+    <url-pattern>/saml/metadata</url-pattern>
+  </servlet>
   <!-- Logout servlet. Redirects a user to IDP and then logouts him  -->
   <servlet name="SAML 2 Logout Servlet" i18n-name-key="saml-logout-servlet.name" key="saml-logout-servlet" class="com.bitium.jira.servlet.SsoLogoutServlet">
     <description key="saml-logout-servlet.description">The SAML 2 Logout Servlet Plugin</description>
     <url-pattern>/saml/logout</url-pattern>
   </servlet>
-
   <servlet name="SAML 2 Config service Servlet" i18n-name-key="saml-config-servlet.name" key="saml-config-servlet" class="com.bitium.jira.servlet.ConfigAjaxServlet">
     <description key="saml-config-servlet.description">The SAML 2 Login Servlet Plugin</description>
     <url-pattern>/saml/getajaxconfig</url-pattern>
   </servlet>
-
   <servlet-filter name="Saml2LoginFilter" key="saml2LoginFilter" location="before-login" class="com.bitium.jira.filter.LoginFilter" weight="0">
     <description>Denies user non-SSO authentication if he tries to bypass login dialog.</description>
     <url-pattern>/dologin.action*</url-pattern>
     <dispatcher>REQUEST</dispatcher>
   </servlet-filter>
-
   <webwork1 key="ConfigureAction" name="Configuration action" class="java.lang.Object">
-      <actions>
-        <action name="com.bitium.jira.config.ConfigureAction" alias="saml2pluginjira.configure">
-          <view name="input">/templates/configure.vm</view>
-          <view name="success">/templates/configure.vm</view>
-          <view name="error">/templates/configure.vm</view>
-        </action>
-      </actions>
-    </webwork1>
+    <actions>
+      <action name="com.bitium.jira.config.ConfigureAction" alias="saml2pluginjira.configure">
+        <view name="input">/templates/configure.vm</view>
+        <view name="success">/templates/configure.vm</view>
+        <view name="error">/templates/configure.vm</view>
+      </action>
+    </actions>
+  </webwork1>
+  <rest name="rest" i18n-name-key="rest.name" key="rest" path="/saml2-plugin" version="1.0">
+    <description key="rest.description">Rest Endpoints for Settings</description>
+  </rest>
 </atlassian-plugin>

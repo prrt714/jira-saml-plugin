@@ -7,7 +7,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.bitium.jira.config.SAMLJiraConfig;
+import com.bitium.jira.config.SamlPluginSettings;
 
 
 /**
@@ -19,10 +19,10 @@ import com.bitium.jira.config.SAMLJiraConfig;
 public class ConfigAjaxServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	
-	private SAMLJiraConfig saml2Config;
+	private SamlPluginSettings samlPluginSettings;
 	
-	public void setSaml2Config(SAMLJiraConfig saml2Config) {
-		this.saml2Config = saml2Config;
+	public void setSamlPluginSettings(SamlPluginSettings samlPluginSettings) {
+		this.samlPluginSettings = samlPluginSettings;
 	}
 	
 	@Override
@@ -31,10 +31,10 @@ public class ConfigAjaxServlet extends HttpServlet {
 		String parameter = request.getParameter("param");
 		if (parameter != null) {
 			if (parameter.equals("idpRequired")) {
-				response.getOutputStream().write(saml2Config.getIdpRequired().getBytes());
+				response.getWriter().write(String.valueOf(samlPluginSettings.isIdpRequired()));
 			} else if (parameter.equals("logoutUrl")) {
-				response.getOutputStream().write(saml2Config.getLogoutUrl().getBytes());
-			}				
+				response.getWriter().write(samlPluginSettings.getFirst().getLogoutUrl());
+			}
 		} 
 		
 	}
